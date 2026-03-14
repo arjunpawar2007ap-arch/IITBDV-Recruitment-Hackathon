@@ -1,4 +1,3 @@
-
 '''
 PPC Hackathon — Participant Boilerplate
 You must implement two functions: plan() and control()
@@ -13,28 +12,65 @@ You must implement two functions: plan() and control()
 # ─── CONTROLLER ───────────────────────────────────────────────────────────────
 import numpy as np
 
-
-
-def steering(path: list[dict], state: dict):
-
-    length_of_car = 2.6
-    # Calculate steering angle based on path and vehicle state
+def steering(path: list[dict], state: dict) -> float:
+ 
     if not path:
         return 0.0
 
-    lookahead_idx = min(len(path) - 1, 5)
+    pos_x, pos_y, yaw = state["x"], state["y"], state["yaw"]
+    vx = state["vx"]
+
+    
+    closest_idx = min(range(len(path)),
+                      key=lambda i: (path[i]["x"]-pos_x)**2 + (path[i]["y"]-pos_y)**2)
+
+    lookahead_steps = int(5 + vx * 1.0)
+    lookahead_steps = max(5, min(lookahead_steps, 15))
+    lookahead_idx = min(closest_idx + lookahead_steps, len(path) - 1)
+
     target = path[lookahead_idx]
 
-    dx = target["x"] - state["x"]
-    dy = target["y"] - state["y"]
-    
-    alpha = np.arctan2(dy, dx) - state["yaw"]
-    ld = np.sqrt(dx**2 + dy**2)
-    
-    if ld > 0.1: 
-        steer = np.arctan2(2 * length_of_car * np.sin(alpha), ld)
+   
+    dx = target["x"] - pos_x
+    dy = target["y"] - pos_y
+    angle_to_target = np.arctan2(dy, dx)
+    heading_error = angle_to_target - yaw
+    heading_error = (heading_error + np.pi) % (2 * np.pi) - np.pi
+
+    steer = 0.6 * heading_error
+    return float(np.clip(steer, -0.5, 0.5))
+
+
+def throttle_algorithm(target_speed, current_speed, dt):
+   
+    error = target_speed - current_speed
+    if error > 0:
+        throttle = float(np.clip(error * 0.5, 0.0, 1.0))
+        brake = 0.0
     else:
-        steer = 0.0
+        throttle = 0.0
+        brake = float(np.clip(-error * 0.3, 0.0, 1.0))
+    return throttle, brake
+
+
+def control(
+    path: list[dict],
+    state: dict,
+    cmd_feedback: dict,
+    step: int,
+) -> tuple[float, float, float]:
+  
+    steer = steering(path, state)
+
+   
+    if abs(steer) > 0.2:
+        target_speed = 3.5
+    else:
+        target_speed = 5.0
+
+    throttle, brake = throttle_algorithm(target_speed, state["vx"], 0.05)
+
+    return throttle, steer, brake        steer = 0.0
     # 0.5 in the max steering angle in radians (about 28.6 degrees)
     return np.clip(steer, -0.5, 0.5)
 

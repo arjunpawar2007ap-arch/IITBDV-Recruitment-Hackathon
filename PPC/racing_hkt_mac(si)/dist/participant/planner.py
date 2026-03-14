@@ -1,4 +1,3 @@
-
 '''
 PPC Hackathon — Participant Boilerplate
 You must implement two functions: plan() and control()
@@ -14,40 +13,54 @@ You must implement two functions: plan() and control()
 import numpy as np
 
 def plan(cones: list[dict]) -> list[dict]:
-    """
-    Generate a path from the cone layout.
-    Called ONCE before the simulation starts.
+ 
 
-    Args:
-        cones: List of cone dicts with keys x, y, side ("left"/"right"), index
+    blue   = [c for c in cones if c["side"] == "left"]
+    yellow = [c for c in cones if c["side"] == "right"]
 
-    Returns:
-        path: List of waypoints [{"x": float, "y": float}, ...]
-              Ordered from start to finish.
+    if not blue or not yellow:
+        return []
+
+    midpoints = []
+    for b in blue:
+        nearest = min(yellow, key=lambda y: (y["x"]-b["x"])**2 + (y["y"]-b["y"])**2)
+        midpoints.append({"x": (b["x"]+nearest["x"])/2.0,
+                          "y": (b["y"]+nearest["y"])/2.0})
+    for y in yellow:
+        nearest = min(blue, key=lambda b: (b["x"]-y["x"])**2 + (b["y"]-y["y"])**2)
+        midpoints.append({"x": (y["x"]+nearest["x"])/2.0,
+                          "y": (y["y"]+nearest["y"])/2.0})
+
     
-    Tip: Try midline interpolation between matched left/right cones.
-         You can also compute a curvature-optimised racing line.
-    """
-    path = []
-    # TODO: implement your path planning here
-    blue = np.array([[cone["x"], cone["y"]] for cone in cones if cone["side"] == "left"])
-    yellow = np.array([[cone["x"], cone["y"]] for cone in cones if cone["side"] == "right"])
+    ordered = [midpoints[0]]
+    remaining = midpoints[1:]
+    while remaining:
+        last = ordered[-1]
+        nearest_idx = min(range(len(remaining)),
+                          key=lambda i: (remaining[i]["x"]-last["x"])**2 +
+                                        (remaining[i]["y"]-last["y"])**2)
+        ordered.append(remaining.pop(nearest_idx))
 
-    # implement a planning algorithm to generate a path from the blue and yellow cones
+    
+    smoothed = []
+    for i in range(len(ordered)):
+        i_prev = max(0, i - 2)
+        i_next = min(len(ordered) - 1, i + 2)
+        neighbors = ordered[i_prev:i_next+1]
+        avg_x = sum(p["x"] for p in neighbors) / len(neighbors)
+        avg_y = sum(p["y"] for p in neighbors) / len(neighbors)
+        smoothed.append({"x": avg_x, "y": avg_y})
 
-    if len(blue) == 0 or len(yellow) == 0:
-        return path
-        
-    for b_cone in blue 
-        distances = np.linalg.norm(yellow - b_cone, axis=1)
-        closest_idx = np.argmin(distances)
-        nearest_yellow = yellow[closest_idx]
-        
-        mid_x = (b_cone[0] + nearest_yellow[0]) / 2
-        mid_y = (b_cone[1] + nearest_yellow[1]) / 2
-        
-        path.append({"x": float(mid_x), "y": float(mid_y)})
-        path = sorted(path, key=lambda p: p["x"])
+  
+    dense = []
+    for i in range(len(smoothed) - 1):
+        p0 = smoothed[i]
+        p1 = smoothed[i + 1]
+        for t in [0.0, 0.2, 0.4, 0.6, 0.8]:
+            dense.append({
+                "x": p0["x"] + t * (p1["x"] - p0["x"]),
+                "y": p0["y"] + t * (p1["y"] - p0["y"])
+            })
+    dense.append(smoothed[-1])
 
-    return path
-
+    return dense

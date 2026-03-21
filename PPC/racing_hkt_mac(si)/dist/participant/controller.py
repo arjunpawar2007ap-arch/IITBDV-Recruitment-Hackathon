@@ -70,15 +70,6 @@ def control(
 
     throttle, brake = throttle_algorithm(target_speed, state["vx"], 0.05)
 
-    return throttle, steer, brake        steer = 0.0
-    # 0.5 in the max steering angle in radians (about 28.6 degrees)
-    return np.clip(steer, -0.5, 0.5)
+    return throttle, steer, brake        
+    
 
-   
-    # TODO: implement your controller here
-    steer = steering(path, state)
-    target_speed = 5.0  # m/s, adjust as needed
-    global integral
-    throttle, brake = throttle_algorithm(target_speed, state["vx"], 0.05)
-
-    return float(throttle), float(steer), float(brake)
